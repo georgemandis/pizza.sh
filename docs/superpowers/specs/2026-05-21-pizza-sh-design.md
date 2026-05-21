@@ -27,6 +27,7 @@ User runs ./pizza.sh
 - `whereami` — native OS location (macOS/Linux/Windows). Already installable via Homebrew.
 - `curl` — HTTP requests (system default on macOS/Linux)
 - `jq` — JSON parsing
+- `awk` — floating-point math for distance calculation (system default on macOS/Linux)
 - Google Places API key (stored in `.env`)
 
 ## Files
@@ -109,7 +110,7 @@ dy = (lat2 - lat1) * 69.172
 distance_miles = sqrt(dx*dx + dy*dy)
 ```
 
-This avoids needing `bc` or `awk` for haversine. Results sorted by distance ascending.
+This is simpler than haversine and accurate enough at short distances. Results sorted by distance ascending.
 
 Note: bash can't do floating-point math natively. Use `awk` for the distance calculation and sorting.
 
@@ -123,7 +124,7 @@ Google Places Nearby Search: 5,000 free calls/month on the free tier. More than 
 $ ./pizza.sh
 
 Finding your location...
-  Brooklyn, NY (40.6892, -73.9857)
+  40.6892, -73.9857
 
 Finding pizza near you...
 
