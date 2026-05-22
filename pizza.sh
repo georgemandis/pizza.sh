@@ -147,3 +147,35 @@ if [[ "$JSON_MODE" == true ]]; then
   echo "$RESULTS" | jq .
   exit 0
 fi
+
+# Display results
+echo ""
+echo "$RESULTS" | jq -r '.[] | "  \(.num). \(.name)\t\(.rating)\t\(.distance) mi\t\(.address)"' | column -t -s $'\t'
+echo ""
+
+# Prompt for selection
+while true; do
+  printf "Pick a pizza place (1-%d): " "$PLACE_COUNT"
+  read -r CHOICE
+
+  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "$PLACE_COUNT" ]]; then
+    break
+  fi
+  echo "Invalid choice. Enter a number between 1 and $PLACE_COUNT."
+done
+
+# Get selected place
+SELECTED=$(echo "$RESULTS" | jq ".[$((CHOICE - 1))]")
+NAME=$(echo "$SELECTED" | jq -r '.name')
+WEBSITE=$(echo "$SELECTED" | jq -r '.website // empty')
+MAPS_URL=$(echo "$SELECTED" | jq -r '.maps_url')
+
+if [[ -n "$WEBSITE" ]]; then
+  URL="$WEBSITE"
+else
+  URL="$MAPS_URL"
+fi
+
+echo ""
+echo "Opening $NAME..."
+open "$URL"
