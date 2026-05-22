@@ -12,6 +12,10 @@ MOCK=""
 RADIUS=2000
 COUNT=5
 JSON_MODE=false
+MOOD="good"
+
+# Status messages go to stderr in JSON mode so stdout stays clean for piping
+info() { if [[ "$JSON_MODE" == true ]]; then echo "$@" >&2; else echo "$@"; fi; }
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -20,6 +24,8 @@ while [[ $# -gt 0 ]]; do
     --radius=*) RADIUS="${1#--radius=}"; shift ;;
     --count=*) COUNT="${1#--count=}"; shift ;;
     --json) JSON_MODE=true; shift ;;
+    --good) MOOD="good"; shift ;;
+    --desperate) MOOD="desperate"; shift ;;
     -h|--help)
       cat <<EOF
 Usage: pizza.sh [options]
@@ -31,6 +37,8 @@ Options:
   --radius=N        Search radius in meters (default: 2000)
   --count=N         Number of results to show (default: 5, max: 20)
   --json            Output JSON instead of interactive list
+  --good            Only good pizza places (default)
+  --desperate       Any pizza will do
   -h, --help        Show this help message
 EOF
       exit 0
@@ -64,13 +72,13 @@ fi
 if [[ -n "$MOCK" ]]; then
   LAT="${MOCK%%,*}"
   LON="${MOCK##*,}"
-  echo "Using mock location: $LAT, $LON"
+  info "Using mock location: $LAT, $LON"
 else
-  echo "Finding your location..."
+  info "Finding your location..."
   LOCATION=$(whereami --json)
   LAT=$(echo "$LOCATION" | jq -r '.latitude')
   LON=$(echo "$LOCATION" | jq -r '.longitude')
-  echo "  $LAT, $LON"
+  info "  $LAT, $LON"
 fi
 
 # Check API key (after location so mock mode shows coordinates before failing)
@@ -80,28 +88,58 @@ if [[ -z "${GOOGLE_PLACES_API_KEY:-}" ]]; then
 fi
 
 # Search for pizza
-echo ""
-echo "Finding pizza near you..."
+info ""
+if [[ "$MOOD" == "desperate" ]]; then
+  info "Finding ANY pizza near you..."
+else
+  info "Finding good pizza near you..."
+fi
 
-RESPONSE=$(curl -s -X POST "https://places.googleapis.com/v1/places:searchNearby" \
-  -H "Content-Type: application/json" \
-  -H "X-Goog-Api-Key: $GOOGLE_PLACES_API_KEY" \
-  -H "X-Goog-FieldMask: places.displayName,places.formattedAddress,places.rating,places.googleMapsUri,places.websiteUri,places.location" \
-  -d "$(jq -n \
-    --argjson lat "$LAT" \
-    --argjson lon "$LON" \
-    --argjson count "$COUNT" \
-    --argjson radius "$RADIUS" \
-    '{
-      includedTypes: ["pizza_restaurant"],
-      maxResultCount: $count,
-      locationRestriction: {
-        circle: {
-          center: {latitude: $lat, longitude: $lon},
-          radius: $radius
+FIELD_MASK="places.displayName,places.formattedAddress,places.rating,places.googleMapsUri,places.websiteUri,places.location"
+
+if [[ "$MOOD" == "desperate" ]]; then
+  # Text Search: casts a wide net, finds anything with "pizza" in the name
+  RESPONSE=$(curl -s -X POST "https://places.googleapis.com/v1/places:searchText" \
+    -H "Content-Type: application/json" \
+    -H "X-Goog-Api-Key: $GOOGLE_PLACES_API_KEY" \
+    -H "X-Goog-FieldMask: $FIELD_MASK" \
+    -d "$(jq -n \
+      --argjson lat "$LAT" \
+      --argjson lon "$LON" \
+      --argjson count "$COUNT" \
+      --argjson radius "$RADIUS" \
+      '{
+        textQuery: "pizza",
+        maxResultCount: $count,
+        locationBias: {
+          circle: {
+            center: {latitude: $lat, longitude: $lon},
+            radius: $radius
+          }
         }
-      }
-    }')")
+      }')")
+else
+  # Nearby Search: curated results, only proper pizza restaurants
+  RESPONSE=$(curl -s -X POST "https://places.googleapis.com/v1/places:searchNearby" \
+    -H "Content-Type: application/json" \
+    -H "X-Goog-Api-Key: $GOOGLE_PLACES_API_KEY" \
+    -H "X-Goog-FieldMask: $FIELD_MASK" \
+    -d "$(jq -n \
+      --argjson lat "$LAT" \
+      --argjson lon "$LON" \
+      --argjson count "$COUNT" \
+      --argjson radius "$RADIUS" \
+      '{
+        includedTypes: ["pizza_restaurant"],
+        maxResultCount: $count,
+        locationRestriction: {
+          circle: {
+            center: {latitude: $lat, longitude: $lon},
+            radius: $radius
+          }
+        }
+      }')")
+fi
 
 # Check for API errors
 if echo "$RESPONSE" | jq -e '.error' &>/dev/null; then

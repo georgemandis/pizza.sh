@@ -14,7 +14,7 @@ Uses [whereami](https://github.com/georgemandis/whereami) to get your location, 
 Finding your location...
   40.6892, -73.9857
 
-Finding pizza near you...
+Finding good pizza near you...
 
   1. Little Pizza Parlor  4.7  0.2 mi  192 Duffield St, Brooklyn, NY 11201, USA
   2. Lucali               4.2  0.9 mi  575 Henry St, Brooklyn, NY 11231, USA
@@ -34,6 +34,8 @@ Opening Little Pizza Parlor...
 --radius=N        Search radius in meters (default: 2000)
 --count=N         Number of results (default: 5, max: 20)
 --json            Output JSON instead of interactive list
+--good            Only good pizza places (default)
+--desperate       Any pizza will do
 -h, --help        Show help
 ```
 
@@ -48,6 +50,9 @@ Opening Little Pizza Parlor...
 
 # Pipe JSON to other tools
 ./pizza.sh --mock=40.7128,-74.0060 --json | jq '.[0].name'
+
+# Any pizza will do
+./pizza.sh --desperate
 ```
 
 ## Setup
@@ -72,7 +77,9 @@ cp .env.example .env
 ## How It Works
 
 1. `whereami --json` returns your latitude and longitude using native OS location services
-2. Google Places Nearby Search finds pizza restaurants within the search radius
+2. Google Places finds pizza restaurants within the search radius
+   - `--good` (default): Nearby Search — curated results, proper pizza restaurants only
+   - `--desperate`: Text Search for "pizza" — casts a wider net, finds anything pizza-adjacent
 3. Results are sorted by distance and displayed as a numbered list
 4. You pick one, and it opens in your browser
 
