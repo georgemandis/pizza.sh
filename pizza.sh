@@ -78,3 +78,72 @@ if [[ -z "${GOOGLE_PLACES_API_KEY:-}" ]]; then
   echo "Error: GOOGLE_PLACES_API_KEY not set. Copy .env.example to .env and add your key." >&2
   exit 1
 fi
+
+# Search for pizza
+echo ""
+echo "Finding pizza near you..."
+
+RESPONSE=$(curl -s -X POST "https://places.googleapis.com/v1/places:searchNearby" \
+  -H "Content-Type: application/json" \
+  -H "X-Goog-Api-Key: $GOOGLE_PLACES_API_KEY" \
+  -H "X-Goog-FieldMask: places.displayName,places.formattedAddress,places.rating,places.googleMapsUri,places.websiteUri,places.location" \
+  -d "$(jq -n \
+    --argjson lat "$LAT" \
+    --argjson lon "$LON" \
+    --argjson count "$COUNT" \
+    --argjson radius "$RADIUS" \
+    '{
+      includedTypes: ["pizza_restaurant"],
+      maxResultCount: $count,
+      locationRestriction: {
+        circle: {
+          center: {latitude: $lat, longitude: $lon},
+          radius: $radius
+        }
+      }
+    }')")
+
+# Check for API errors
+if echo "$RESPONSE" | jq -e '.error' &>/dev/null; then
+  echo "Error from Google Places:" >&2
+  echo "$RESPONSE" | jq -r '.error.message' >&2
+  exit 1
+fi
+
+# Check for empty results
+PLACE_COUNT=$(echo "$RESPONSE" | jq '.places // [] | length')
+if [[ "$PLACE_COUNT" -eq 0 ]]; then
+  echo "No pizza places found within ${RADIUS}m. Try a larger --radius."
+  exit 0
+fi
+
+# Calculate distances and sort by distance
+RESULTS=$(echo "$RESPONSE" | jq -r --argjson ulat "$LAT" --argjson ulon "$LON" '
+  .places | to_entries | map(
+    .value + {_index: .key}
+  ) | map(
+    . + {
+      _dist_miles: (
+        ((.location.longitude - $ulon) * (((($ulat + .location.latitude) / 2) * 3.14159265 / 180) | cos) * 69.172) as $dx |
+        ((.location.latitude - $ulat) * 69.172) as $dy |
+        (($dx * $dx + $dy * $dy) | sqrt)
+      )
+    }
+  ) | sort_by(._dist_miles) | to_entries | map(
+    {
+      num: (.key + 1),
+      name: .value.displayName.text,
+      rating: (.value.rating // "N/A"),
+      distance: ((.value._dist_miles * 10 | round) / 10),
+      address: .value.formattedAddress,
+      website: (.value.websiteUri // null),
+      maps_url: .value.googleMapsUri
+    }
+  )
+')
+
+# JSON mode: print and exit
+if [[ "$JSON_MODE" == true ]]; then
+  echo "$RESULTS" | jq .
+  exit 0
+fi
