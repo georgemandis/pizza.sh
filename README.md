@@ -2,9 +2,24 @@
 
 Find pizza near you from the command line.
 
-Uses [whereami](https://github.com/georgemandis/whereami) to get your location, Google Places to find nearby pizza places, and opens your pick in the browser.
+## Quick Start (macOS, no API key needed)
 
-## Usage
+On macOS, you can combine [whereami](https://github.com/georgemandis/whereami) and [nearme](https://github.com/georgemandis/nearme) to find pizza with zero configuration:
+
+```bash
+brew install georgemandis/tap/whereami georgemandis/tap/nearme
+whereami --json | nearme "pizza"
+```
+
+That's it. `whereami` gets your location via macOS location services, and `nearme` searches Apple Maps for nearby results. No API keys, no setup.
+
+For more control — ratings, filtering, cross-platform support — read on.
+
+## pizza.sh
+
+Uses [whereami](https://github.com/georgemandis/whereami) to get your location, Google Places to find nearby pizza places, and opens your pick in the browser. Requires a Google Places API key but gives you richer results including ratings, and options like `--good` (curated results) and `--desperate` (anything pizza-adjacent).
+
+### Usage
 
 ```bash
 ./pizza.sh
@@ -55,15 +70,15 @@ Opening Little Pizza Parlor...
 ./pizza.sh --desperate
 ```
 
-## Setup
+### Setup
 
-### Dependencies
+#### Dependencies
 
 - [whereami](https://github.com/georgemandis/whereami) — `brew install georgemandis/tap/whereami`
 - [jq](https://jqlang.github.io/jq/) — `brew install jq`
 - curl (system default)
 
-### Google Places API Key
+#### Google Places API Key
 
 1. Create a [Google Cloud project](https://console.cloud.google.com/)
 2. Enable the [Places API (New)](https://console.cloud.google.com/apis/library/places-backend.googleapis.com)
@@ -76,12 +91,20 @@ cp .env.example .env
 
 ## How It Works
 
-1. `whereami --json` returns your latitude and longitude using native OS location services
+**Quick path** (`whereami | nearme`): `whereami` gets your coordinates via native OS location services, and `nearme` searches Apple Maps locally — no network API keys involved.
+
+**Full path** (`pizza.sh`):
+1. `whereami --json` returns your latitude and longitude
 2. Google Places finds pizza restaurants within the search radius
    - `--good` (default): Nearby Search — curated results, proper pizza restaurants only
    - `--desperate`: Text Search for "pizza" — casts a wider net, finds anything pizza-adjacent
 3. Results are sorted by distance and displayed as a numbered list
 4. You pick one, and it opens in your browser
+
+## Related Projects
+
+- [whereami](https://github.com/georgemandis/whereami) — Get your location from the command line (macOS, Windows, Linux)
+- [nearme](https://github.com/georgemandis/nearme) — Search for nearby places using Apple Maps (macOS only)
 
 ## Credits
 
